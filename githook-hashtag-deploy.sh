@@ -1,16 +1,14 @@
 #/bin/sh
 ########################################################################
 #
-# NAME deploy - Place a copy of update into each ubn repo hook directory
+# NAME githook-hashstag-deploy.sh - Place copy of update into hook dir
 #
 # DESCRIPTION Since "update" is a generic script, this deployment script
 #      will not overwrite someone elses work.
 #
 ########################################################################
 
-dir=$(pwd)
-
-. $dir/githook-hashtag.conf
+. /etc/githook-hashtag.conf
 
 del=" "
 
@@ -23,15 +21,22 @@ END
 reps=$(mktemp /tmp/repos-XXXXXX)
 bmsql "SELECT u.name, r.name FROM repository r join \"user\" u on u.id = r.owner_id  WHERE r.name LIKE '%-ubn%'" > $reps
 
-while read user repo ; do
-  tgt=$repos/$user/${repo}.git/hooks
+lines=$(wc -l $reps)
 
-  if [ $tgt/update ] ; then
-    echo "Warning: $tgt/update already exists. Will not overwrite."
-  else 
-    cp githook-hashtag.conf update $repos/$user/${repo}.git/hooks
-  fi
-done < $reps
+if [ x$lines -lt 1 ] ; then
+  echo "Warning: No ubn repositories detected."
+else 
+  while read user repo ; do
+    tgt=$repos/$user/${repo}.git/hooks
+
+    if [ $tgt/update ] ; then
+      echo "Warning: $tgt/update already exists. Will not overwrite."
+    else 
+      cp githook-hashtag.conf  /etc
+      cp update $repos/$user/${repo}.git/hooks
+    fi
+  done < $reps
+fi
 
 rm $reps
 

@@ -8,9 +8,7 @@
 #
 ###########################################################################
 
-dir=$(pwd)
-
-. $dir/githook-hashtag.conf
+. /etc/githook-hashtag.conf
 
 del=" "
 
@@ -19,9 +17,6 @@ bmsql() {
   $* ;
 END
 }
-
-
-#exec git update-server-info
 
 echo $(date) Updating hashtags $*
 
@@ -37,11 +32,9 @@ user=$4
   usr=${repo%/*}
   rep=${noExt#*/}
   lang=${rep%%-*}
-  echo "usr: $usr rep: $rep lang: $lang"
 
 # log update
   log="$(date) Updating Hashtags $noExt $*"
-  echo $log
   echo $log >> /tmp/serverhook
 
 # make a place for temp repo
@@ -61,7 +54,6 @@ user=$4
 # get user id and repo id
   userId=$(bmsql SELECT id FROM \"user\"     WHERE name = \'$usr\')
   repoId=$(bmsql SELECT id FROM repository   WHERE name = \'$rep\')
-  echo $userId $repoId
 
 # delete all tags for repo pages
   bmsql "DELETE FROM hashtag WHERE user_id = $userId AND repo_id = $repoId"
@@ -85,7 +77,7 @@ user=$4
   sort -u < $inserts > $sorted
   sudo -u postgres psql --username=postgres --dbname=gitea -f $sorted
 
-#rm -rf /tmp/repo* $files $tags $inserts $sorted
+rm -rf /tmp/repo-* $files $tags $inserts $sorted
 exit 0
 
 
