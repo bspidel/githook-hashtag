@@ -1,0 +1,37 @@
+#/bin/sh
+########################################################################
+#
+# NAME deploy - Place a copy of update into each ubn repo hook directory
+#
+# DESCRIPTION Since "update" is a generic script, this deployment script
+#      will not overwrite someone elses work.
+#
+########################################################################
+
+dir=$(pwd)
+
+. $dir/githook-hashtag.conf
+
+del=" "
+
+bmsql() {
+  psql --username=postgres --dbname=$dbname --no-align --tuples-only --field-separator="$del" <<END
+  $* ;
+END
+}
+
+reps=$(mktemp /tmp/repos-XXXXXX)
+bmsql "SELECT u.name, r.name FROM repository r join \"user\" u on u.id = r.owner_id  WHERE r.name LIKE '%-ubn%'" > $reps
+
+while read user repo ; do
+  tgt=$repos/$user/${repo}.git/hooks
+
+  if [ $tgt/update ] ; then
+    echo "Warning: $tgt/update already exists. Will not overwrite."
+  else 
+    cp githook-hashtag.conf update $repos/$user/${repo}.git/hooks
+  fi
+done < $reps
+
+rm $reps
+
