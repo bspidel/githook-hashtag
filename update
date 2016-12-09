@@ -8,34 +8,56 @@
 #
 ###########################################################################
 
-. /etc/githook-hashtag.conf
+refName=$1
+oldRev=$2
+newRev=$3
+ini=$4
+
+myDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $myDir/githook-hashtag.conf
 
 del=" "
 
 bmsql() {
-  psql --username=postgres --dbname=$dbname --no-align --tuples-only --field-separator="$del" <<END
+  # call postgress with "csv" (see del above) output and no headers
+  psql --dbname=$dbname --no-align --tuples-only --field-separator="$del" <<END
   $* ;
 END
 }
 
-echo $(date) Updating hashtags $*
 
-refName=$1
-oldRev=$2
-newRev=$3
-user=$4
+myLog() {
+  # gotta log it somewhere
+  logDate=$(date +"%y-%m-%d_%H:%M:%S")
+  log="$logDate $*"
+  echo "$log" >> $logFile/githook-hashtag-update.log
+}
+
+
+if [ x$refName = x-d ] ; then
+  set -x
+fi
 
 # what repo am I
   wd=$(pwd)
-  repo=${wd#*repositories/}
+  rwd=${wd%/hooks}
+  repo=${rwd#*repositories/}
   noExt=${repo%.git}
   usr=${repo%/*}
   rep=${noExt#*/}
+
+  case $rep in
+    *-ubn|*-ubn-*) true ;;
+    *)
+      myLog "Error: $rep is not a UBN repo"
+      exit 0
+      ;;
+  esac
+
+  myLog "Update: Updating Hashtags $noExt $*"
+
   lang=${rep%%-*}
 
-# log update
-  log="$(date) Updating Hashtags $noExt $*"
-  echo $log >> /tmp/serverhook
 
 # make a place for temp repo
   b="/tmp/"
@@ -47,13 +69,13 @@ user=$4
 
 # clone repo
   cd /tmp
-  git clone $wd $tmp
+  git clone $rwd $tmp
   cd $tmp
   dateStamp=$(date +"%s")
 
 # get user id and repo id
-  userId=$(bmsql SELECT id FROM \"user\"     WHERE name = \'$usr\')
-  repoId=$(bmsql SELECT id FROM repository   WHERE name = \'$rep\')
+  userId=$(bmsql "SELECT id FROM \"user\"     WHERE name = '$usr'")
+  repoId=$(bmsql "SELECT id FROM repository   WHERE name = '$rep' and owner_id = $userId ")
 
 # delete all tags for repo pages
   bmsql "DELETE FROM hashtag WHERE user_id = $userId AND repo_id = $repoId"
@@ -75,9 +97,9 @@ user=$4
 
 # write to db
   sort -u < $inserts > $sorted
-  sudo -u postgres psql --username=postgres --dbname=gitea -f $sorted
+  psql --dbname=$dbname -f $sorted
 
-rm -rf /tmp/repo-* $files $tags $inserts $sorted
+rm -rf $b$tmp 
+rm -f $files $tags $inserts $sorted
 exit 0
-
 
